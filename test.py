@@ -3,6 +3,9 @@ import torch.nn as nn
 import torchvision
 import torchvision.transforms as transforms
 
+#device
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+
 #hyperparameter
 input_size = 28
 batch_size = 100
@@ -13,7 +16,7 @@ num_epochs = 5
 #load the data
 train_data = torchvision.datasets.MNIST(root = "../../data/",
                                         train = True,
-                                        download = True,
+                                        download = False,
                                         transform = transforms.ToTensor())
 
 test_data = torchvision.datasets.MNIST( root = "../../data/",
@@ -61,7 +64,7 @@ class CNN(nn.Module):
         return out
 
 
-model = CNN(nums_classes)
+model = CNN(nums_classes).to(device)
 
 #loss and optimizer
 criterion = nn.CrossEntropyLoss()
@@ -72,13 +75,39 @@ total_step = len(train_data)
 for epoch in range(num_epochs):
     for i,(images,labels) in enumerate(train_loader):
         # forward pass
-        #print(labels)
-        outputs = CNN(images)
-        print(outputs)
-        break
-        #loss = criterion(outputs,labels)
+        images = images.to(device)
+        labels = labels.to(device)
+        outputs = model(images)
+        loss = criterion(outputs,labels)
+
+        # backward and optimize
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        if (i+1) % 100 == 0:
+            print("epoch:{}/{}, step: {}/{}, loss:{:.4f}".format(epoch,num_epochs,i+1,total_step,loss.item()))
 
 
+# test the model
+model.eval()
+with torch.no_grad():
+    correct = 0
+    total = 0
+    for images,labels in test_loader:
+        images = images.to(device)
+        labels = labels.to(device)
 
+        outputs = model(images)
+        _ ,predicted = torch.max(outputs.data,1)
+        print(predicted)
+        print(labels)
+        print("------")
+        total+= labels.size(0)
+        correct+= (predicted == labels).sum().item()
+
+    print("accuracy is {}".format(correct/total))
+# save the mode
+torch.save(model.state_dict(),"model.ckpt")
 
 
